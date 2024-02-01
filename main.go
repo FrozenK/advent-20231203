@@ -20,9 +20,15 @@ type number struct {
 	position coordinate
 }
 
-func parseLine(line string, y int) ([]number, []symbol) {
+type matrix struct {
+	value    string
+	position coordinate
+}
+
+func parseLine(line string, y int) ([]number, []symbol, []matrix) {
 	symbols := []symbol{}
 	numbers := []number{}
+	matrixs := []matrix{}
 
 	numFound := false
 	var num string
@@ -46,7 +52,17 @@ func parseLine(line string, y int) ([]number, []symbol) {
 				},
 			}
 			numbers = append(numbers, n)
-			fmt.Printf("[ %s - position %d - lenght %d - x %d]\n", num, x-len(num), len(num), x)
+
+			for i := range num {
+				m := matrix{
+					value: num,
+					position: coordinate{
+						x: x - len(num) + i,
+						y: y,
+					},
+				}
+				matrixs = append(matrixs, m)
+			}
 			num = ""
 		}
 		if c == '.' {
@@ -65,8 +81,6 @@ func parseLine(line string, y int) ([]number, []symbol) {
 	}
 
 	if numFound {
-		// if we had found a number we add the final number to the number slice
-		numFound = false
 		n := number{
 			value: num,
 			position: coordinate{
@@ -75,13 +89,83 @@ func parseLine(line string, y int) ([]number, []symbol) {
 			},
 		}
 		numbers = append(numbers, n)
+
+		for i := range num {
+			m := matrix{
+				value: num,
+				position: coordinate{
+					x: len(line) - len(num) + i,
+					y: y,
+				},
+			}
+			matrixs = append(matrixs, m)
+		}
 		num = ""
 	}
-	return numbers, symbols
+	return numbers, symbols, matrixs
+}
+
+func (s symbol) getRatio(m []matrix) int {
+	mx := []coordinate{
+		{x: -1, y: -1},
+		{x: -1, y: 0},
+		{x: -1, y: 1},
+		{x: 0, y: -1},
+		{x: 1, y: -1},
+		{x: 1, y: 0},
+		{x: 1, y: 1},
+		{x: 0, y: 1},
+	}
+
+	var matrixs []matrix
+	for _, c := range mx {
+		px := s.position.x + c.x
+		py := s.position.y + c.y
+		if px < 0 || py < 0 {
+			continue
+		}
+		for _, matrix := range m {
+			if matrix.found(coordinate{
+				x: px,
+				y: py,
+			}) {
+				if notContains(matrixs, matrix) {
+					fmt.Print(" Found : ")
+					fmt.Println(matrix)
+					matrixs = append(matrixs, matrix)
+				}
+			}
+		}
+	}
+
+	if len(matrixs) != 2 {
+		return 0
+	}
+
+	fmt.Println(matrixs)
+	v1, _ := strconv.Atoi(matrixs[0].value)
+	v2, _ := strconv.Atoi(matrixs[1].value)
+	return v1 * v2
 }
 
 func (s symbol) found(c coordinate) bool {
 	if c.x == s.position.x && c.y == s.position.y {
+		return true
+	}
+	return false
+}
+
+func notContains(m []matrix, i matrix) bool {
+	for _, a := range m {
+		if a.value == i.value {
+			return false
+		}
+	}
+	return true
+}
+
+func (m matrix) found(c coordinate) bool {
+	if c.x == m.position.x && c.y == m.position.y {
 		return true
 	}
 	return false
@@ -121,6 +205,7 @@ func (n number) isAPart(s []symbol, length int, width int) bool {
 
 func main() {
 	sum := 0
+	ratio := 0
 	f, err := os.Open("input1.txt")
 	if err != nil {
 		panic(err)
@@ -129,6 +214,7 @@ func main() {
 
 	symbols := []symbol{}
 	numbers := []number{}
+	matrixs := []matrix{}
 
 	y := 0
 	lineLen := 0
@@ -137,8 +223,9 @@ func main() {
 		line := scanner.Text()
 		lineLen = len(line)
 
-		ln, ls := parseLine(line, y)
+		ln, ls, lm := parseLine(line, y)
 		numbers = append(numbers, ln...)
+		matrixs = append(matrixs, lm...)
 		symbols = append(symbols, ls...)
 		y++
 	}
@@ -148,5 +235,13 @@ func main() {
 			sum += v
 		}
 	}
+	for _, s := range symbols {
+		fmt.Println(s)
+		if s.value != "*" {
+			continue
+		}
+		ratio += s.getRatio(matrixs)
+	}
 	fmt.Printf("Sum = %d\n", sum)
+	fmt.Printf("Ratio = %d\n", ratio)
 }
